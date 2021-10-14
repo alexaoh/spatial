@@ -14,7 +14,7 @@
 # prerec: number of scallops whose shell length is smaller than 70 millimeters.
 # recruits: number of scallops whose shell length is 70 millimeters or larger.
 
-setwd("/home/ajo/gitRepos/spatial/Chapter2")
+setwd("/home/ajo/gitRepos/spatial/geostatistics/Chapter2")
 library(geoR)
 library(sm)
 
