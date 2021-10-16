@@ -1,7 +1,6 @@
-#install.packages("geoR")
 library(geoR)
 
-setwd("/home/ajo/gitRepos/spatial/Chapter4")
+setwd("/home/ajo/gitRepos/spatial/geostatistics/Chapter4")
 #############################################################
 # Datos: Scallops.
 ##############################################################

@@ -206,7 +206,7 @@ plot(bp.2, envelope = indep.env, main="CONFIDENCE BANDS FOR INDEPENDENT MODEL", 
 #######################Study the Anisotropy of the process
 source("../Chapter3/RoseDiagram.R")
 rose.diagram(data.var=geoscal.rot.residus$data,data.cds=geoscal.rot.residus$coord,max.dist=maxdist/2,numcases=10,numdirec=4,poly.tnd="cte",crit.val=5)
-rose.diagram(data.var=geoscal.rot.residus$data,data.cds=geoscal.rot.residus$coord,max.dist=maxdist/2,numdirec=8,poly.tnd="cte",crit.val=5)
+rose.diagram(data.var=geoscal.rot.residus$data,data.cds=geoscal.rot.residus$coord,max.dist=maxdist/2,numcases=10,numdirec=8,poly.tnd="cte",crit.val=5)
 
 
 angle<-pi/2
@@ -220,4 +220,3 @@ variod <- variog4(geoscal.ani, max.dist=maxdist/2, pairs.min=30,estimator.type =
 plot(variod,lyt=2,legend=FALSE)
 legend(x="bottomright", inset=0.01, lty=c(1,2,3,4), col=c("black", "red", "green","blue"),
        legend=c("0º", "45º", "90º","135º"), cex=1)
-

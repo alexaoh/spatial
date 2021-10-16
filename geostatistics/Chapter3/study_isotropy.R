@@ -1,5 +1,4 @@
-
-setwd("/home/ajo/gitRepos/spatial/Chapter3/")
+setwd("/home/ajo/gitRepos/spatial/geostatistics/Chapter3/")
 
 library(geoR)
 
