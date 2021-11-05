@@ -352,5 +352,3 @@ summary(lk1.2)
 lk1.2
 plot(bin2,  main="PARAMETRIC VARIOGRAMS",cex.main=1, pch=16);
 lines(lk1.2, lwd = 2, col="red", max.dist=maxdist/2)
-
-

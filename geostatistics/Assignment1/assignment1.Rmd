@@ -9,6 +9,7 @@ params:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = params$showCode, comment = "#>", warning = FALSE, message = FALSE)
+source("../Chapter3/RoseDiagram.R") # This has to point at the RoseDiagram-file on your computer. 
 ```
 
 This is the first assignment in Spatial Epidemiology at UPC, fall 2021. It is in the topic of Geostatistics. Don't know if we should write anything else in this "intro". 
@@ -16,6 +17,7 @@ This is the first assignment in Spatial Epidemiology at UPC, fall 2021. It is in
 ## Load libraries and data
 
 ```{r}
+# The libraries we used. 
 library(geoR)
 library(sm)
 library(gstat)
@@ -42,9 +44,9 @@ plot(geoelevs)
 ###   (crosses)  : 4th quartile
 ```
 
-The histogram of the elevations shows that the data is nicely distributed, resembling a normal distribution, which means that we will not need to apply a transformation at this stage. Moreover, the plot in the upper left corner shows that most of the larger values are in the upper left part of the islet, based on the red crosses, which make up the largest 25\% of values in the data set. In general, the first quartile in the data is more widespread on the islet, while the rest of the data is mostly spread out around the border of the islet. Note that the plot in the lower left shows a trend in the latitude, perhaps following a second order polynomial (upside down U). There are also some indications of a rising trend in the longitude, based on the plot in the upper right corner. An attempt at removing these trends will be done later, using a linear model. 
+The histogram of the elevations shows that the data is relatively symmetrically distributed, resembling a normal distribution, which means that we will not need to apply a transformation at this stage. Moreover, the plot in the upper left corner shows that most of the larger values are in the upper left part of the islet, based on the red crosses, which make up the largest 25\% of values in the data set. In general, the first quartile in the data is more widespread on the islet, while the rest of the data is mostly spread out around the border of the islet. Note that the plot in the lower left shows a trend in the longitude, perhaps following a second order polynomial (upside down U). There are also some indications of a rising trend in the latitude, based on the plot in the upper right corner. An attempt at removing these trends will be done later, using a linear model. 
 
-The plots below further ground the initial theories about the trends in the latitude and longitude. 
+The following plots further ground the initial theories about the trends in the latitude and longitude. 
 
 ```{r}
 with(geoelevs, plot(coords[, 1], data, xlab = "W-E",
@@ -61,8 +63,6 @@ Attempting to remove the trends with a linear model. The residuals of the linear
 ```{r}
 lm.fit <- lm(data ~ y + poly(x,2), data = elevs)
 summary(lm.fit)
-# lm.fit <- lm(data ~ poly(y,2) + poly(x,2), data = elevs)
-# summary(lm.fit)
 
 # Add residuals to a new data frame. 
 elevs2 <- data.frame(elevs, residuals = lm.fit$residuals)
@@ -81,13 +81,13 @@ with(geoelevs2, plot(coords[, 2], data, xlab = "S-N",
 lines(with(geoelevs2, lowess(data ~ coords[, 2])))
 ```
 
-It looks like some of the trend has been removed, i.e. the linear model has explained some of the variations in the data. Note that we also attempted different combinations of dropping the second order term in latitude and adding a second order term in longitude, but found that this model gives the best results, i.e. the linear model we have used above is the simplest model that explains the data to approximately the same extent as the most complicated model (among these combinations) and the residuals have the least amount of trend. Note that this is by no means a rigorous analysis applying the linear model, but we have chosen the simplest model that qualitatively seems to remove some of the trend in the data. Therefore, we will use the residuals from the linear regression in the rest of the analysis. \textcolor{red}{What do you think about which of the linear models above we should use? The one with poly(x,2) and poly(y,2) has larger adjusted R-squared, but I think the plots look nicer with the one I have chosen here. Thoughts?}
+It looks like some of the trend has been removed, i.e. the linear model has explained some of the variations in the data. Note that we also attempted different combinations of dropping the second order term in longitude and adding a second order term in latitude, but chose the above model for its simplicity and reasonably good performance. It is the simplest model among those we tried, where all the models had very similar residuals. Note that this is by no means a rigorous analysis when applying the linear model, but we have chosen the simplest model that seems to remove some of the trend in the data. Therefore, we will use the residuals from the linear regression in the rest of the analysis. \textcolor{red}{Ok?}
 
 ## 2. Exploration of the small scale variability of the elevation
 
 In this problem we will explore the small scale variability of the elevation data. 
 
-First we calculate and plot the variogram cloud together with the empirical variogram. Remember that we now are analyzing the residuals after the linear regression presented earlier. Note that the robust estimator (`modulus`, Hawkins and Cressie 1993) is used when estimating the empirical variogram. 
+First we calculate and plot the variogram cloud together with the empirical variogram. Remember that we now are analyzing the residuals from the linear regression presented earlier. Note that the robust estimator (`modulus`, Hawkins and Cressie 1993) is used when estimating the empirical variogram. 
 
 ```{r, results = "hide"}
 # Practical rules: lags only up to half of maxdist. That is why maxdist is saved here. 
@@ -95,9 +95,9 @@ maxdist <- max(dist(cbind(elevs$x,elevs$y)))
 cloud <- variog(geoelevs2, option = "cloud", estimator.type = "modulus")
 bp <- variog(geoelevs2, option = "bin", bin.cloud = T,
                pairs.min=30, max.dist=maxdist/2,
-               estimator.type = "modulus") # Not sure about all these arguments. 
+               estimator.type = "modulus", uvec=seq(0,maxdist/2,l=30)) 
 bin <- variog(geoelevs2, option = "bin", pairs.min=30, max.dist=maxdist/2,
-                estimator.type = "modulus")
+                estimator.type = "modulus", uvec=seq(0,maxdist/2,l=30))
 # Also: pairs,min = 30 since the sample variogram should only be considered for lags 
 # that have more than 30 pairs. 
 
@@ -108,10 +108,9 @@ title(main = "BINNED BOXPLOTS", cex.main=1)
 plot(bin, main="EMPIRICAL VARIOGRAMS \nBINNED",cex.main=1, cex.lab=1, cex=2, pch=16)
 ```
 
-From these variogram plots it looks like the range of a variogram is approx. 30 (distance), the sill around 150 (semivariance) and the nugget might be around 30. Thus, one might say that there is spatial correlation, at least in a range of 30.
-
-\textcolor{red}{Not sure if this should be done in this problem or in problem 3. What do you think?}
-Will calculate directional variograms to study isotropic/anistropic properties also.
+From these variogram plots it looks like the range of a variogram is approx. 20 (distance), the sill around 140 (semivariance) and the nugget might be around 30. Thus, one might say that there is spatial correlation, at least in a range of 30. The bin at approximately distance 35 is an outlier and will be treated as such in the following. However, we will not remove it from bin. 
+ 
+Will calculate directional variograms to study isotropic/anistropic properties also. \textcolor{red}{Kept this here instead of in problem3, but it could be moved there also.}
 
 ```{r, results = "hide"}
 par(mfrow=c(1, 1))
@@ -120,56 +119,51 @@ plot(variod,lyt=2,legend=FALSE)
 legend(x="bottomright", inset=0.01, lty=c(1,2,3,4), col=c("black", "red", "green","blue"),
        legend=c("0º", "45º", "90º","135º"), cex=0.5)
 ```
-
-We think the data looks relatively isotropic, as all 4 directions checked look relatively similar to each other. 
-
+At first glance the data looks relatively isotropic, at least based on the 4 directions plotted above, which look relatively similar to each other. 
 
 ## 3. Exploration of the spatial independence
 
 In this problem we will further explore the spatial independence of the process. As specified in the problem description, we will set the seed to 1000. 
 
 ```{r, results = "hide"}
-set.seed(1000)
+set.seed(12345)
 par(mfrow=c(1,1))
-indep.env <- variog.mc.env(geoelevs2, coords=geoelevs2$coords, data=geoelevs2$data, obj.variog=bp, nsim=200)
-plot(bp, envelope = indep.env, main="CONFIDENCE BANDS FOR INDEPENDENT MODEL", lwd=2, pch=16)
+indep.env <- variog.mc.env(geoelevs2, coords=geoelevs2$coords, 
+                        data=geoelevs2$data, obj.variog=bp, nsim=200)
+plot(bp, envelope = indep.env, main="CONFIDENCE BANDS FOR INDEPENDENT MODEL", 
+                        lwd=2, pch=16)
 ```
 
-The confidence bands show a range of estimated variograms when the measurements are randomly permuted in the spatial points. The lower confidence band is the minimum value of the variogram for the simulated data in each point and, similarly, the upper confidence band is the maximum value. In order for the hypothesis that the process is independent, i.e. that the apparent increase in the estimated variogram with distance (from earlier) might be attributed to chance, the entire variogram should fall inside these confidence bands.
-It is not clear what to conclude based on this plot only, but two points are outside the confidence bands, which indicates
-that complete spatial randomness in the underlying process may be unplausible.
+The confidence bands show a range of estimated variograms when the measurements are randomly allocated to the spatial points. The lower confidence band is the minimum value of the variogram for the simulated data in each lag and, similarly, the upper confidence band is the maximum value. The hypothesis that the process is independent may be rejected if the empirical variogram falls outside these confidence bands, since this would indicate that it is unplausible that the variaogram has those values by chance. The plot shows that two of the points are outside the confidence bands (including the large outlier), which could indicate that complete spatial randomness in the underlying process may be unplausible. However, disregarding the outlier we think this plot is not enough to disregard the hypothesis of spatial randomness, since the rest of the points are inside the confidence bands. Thus we think the evidence against the null hypothesis is not strong enough and conclude that the data are spatially independent. This depends on the seed used to generate pseudorandom numbers, but it seems like the conclusion holds with other seeds also. 
 
 We will also add a Rose diagram, to study the anisotropy further. The Rose diagram will be plotted used the code supplied in the lectures (`RoseDiagram.R`).
 
 ```{r, results = "hide"}
-source("../Chapter3/RoseDiagram.R") # This has to point at the RoseDiagram-file on your computer. 
-rose.diagram(data.var=geoelevs2$data,data.cds=geoelevs2$coord,max.dist=maxdist/2,numcases=10,numdirec=4,poly.tnd="cte",crit.val=5)
+# Added a large crit.val since it has no default in the rose.diagram function. If it is larger than min(max.semi)
+# it is automatically set to min(max.semi)*0.99 inside the function. 
+rose.diagram(data.var=geoelevs2$data,data.cds=geoelevs2$coord,max.dist=maxdist/2,
+             numcases=15,numdirec=4,poly.tnd="cte", crit.val = 1000)
 ```
 
-The idea behind this plot is that one can see if the data looks anisotropic. If this is the case, one can try to apply a anisotropic
-coordinate correction (rotational transformation) and then make the same plot as above again
-(with the estimated variogram in four different directions),
-to see if the data looks more isotropic. 
+The idea behind this plot is that one can see if the data looks anisotropic. If this is the case, one can try to apply an anisotropic
+coordinate correction (rotational transformation). After the transformation, one can make the same plot as above again to check if the data looks more isotropic. 
 
-\textcolor{red}{This is done in "exploreSmallScaleDep.R", at the bottom of the file. Done in "study_isotropy.R" also.}
-
-\textcolor{red}{Not sure why I do not get any output now. Does it work on your computer?}
-From the Rose Diagram plotted above, it looks like the Anisotropy angle is 0 (angle between y-axis and the direction with the maximum range). Moreover, it looks like the Anisotropy ratio is 2 (ratio between maximum and minimum ranges). Thus we can try the rotational transformation below and observe if it looks more isotropic \textcolor{red}{Even though it looked pretty good to begin with IMO. What do you think?}.
+From the Rose Diagram plotted above, it looks like the Anisotropy angle is $\frac{\pi}{2}$ (angle between y-axis and the direction with the maximum range). Moreover, it looks like the Anisotropy ratio is approximately 3 (ratio between maximum and minimum ranges). Thus we can try the rotational transformation below and observe if it looks more isotropic.
 
 ```{r, results = "hide"}
-angle <- 0 # No rotation in this case, only "squishing".
-ratio <- 2   
+angle <- pi/2
+ratio <- 3
 elevs2.ani <- cbind(coords.aniso(geoelevs2$coords, c(angle,ratio),reverse = FALSE),geoelevs2$data)
 geoelevs2.ani <- as.geodata(elevs2.ani)
 plot(geoelevs2.ani)
 par(mfrow=c(1,1))
 variod.ani <- variog4(geoelevs2.ani, max.dist=maxdist/2, pairs.min=30,estimator.type = "modulus");
-plot(variod.ani,lyt=2,legend=FALSE,main="Anisotropy angle=0,ratio=2")
+plot(variod.ani,lyt=2,legend=FALSE)
 legend(x="bottomright", inset=0.01, lty=c(1,2,3,4), col=c("black", "red", "green","blue"),
        legend=c("0\u00B0", "45\u00B0", "90\u00B0","135\u00B0"), cex=0.5)
 ```
 
-\textcolor{red}{These variograms look about the same as earlier IMO. This tranformation-process only makes sense for geometric anisotropies?}
+Comparing the plot above to the same plot from earlier we conclude that this process looks less isotropic than before. Therefore, we will keep analyzing the data as it is. In this way we also avoid the need of transforming the coordinate data as well. \textcolor{red}{What do you think about this conclusion? And I say just remove the code/plots from below as well. }
 
 Making the same plots as earlier, to see if the process looks more isotropic. 
 
@@ -198,74 +192,41 @@ plot(bin, main="EMPIRICAL VARIOGRAMS \nBINNED Before",cex.main=1, cex.lab=1, cex
 plot(bin2, main="EMPIRICAL VARIOGRAMS \nBINNED Transf",cex.main=1, cex.lab=1, cex=2, pch=16)
 ```
 
-It looks like the sills are different. \textcolor{red}{Do we have to conclude on whether this is a geometric, zonal or combined anisotropy?}
 
 ## 4. Theoretical variograms and estimations of their parameters
 
-In this problem we will propose four theoretical variograms and estimate them via restricted maximum likelihood (REML) \textcolor{red}{Only applicable to processes with second-order stationary errors?}. Later we will select the two variograms that best fit the data and explain the parameters of the chosen variogram. We propose the exponential, Gaussian, spherical and Matérn models. Note that this is done with 'bin' for now, which is the empirical variogram estimate with the un-transformed data (referring to the transformation done above). \textcolor{red}{This can easily be changed by swapping 'bin' for 'bin2' or 'geoelevs2' for 'geoelevs2.ani'. Which data set do you think should be used here?} In order to find the initial values for optimization of the restricted maximum likelihoods, we used the function below, which is a graphical tool. 
+In this problem we will propose four theoretical variograms and estimate them via weighted least squares. Later we will select the two variograms that best fit the data and explain the parameters of the chosen variogram. We propose the exponential (with nugget effect), Gaussian (with nugget effect), spherical and Matérn models. Note that this is done with the empirical variaogram 'bin', which is not transformed according to the transformation that was attempted above. In order to find the initial values for optimization of the restricted maximum likelihoods, we used the function below, which is a graphical tool. 
 
 ```{r, eval = F}
 eyefit(bin, silent = FALSE)
 ```
 
-From this tool, we arrived at the initial values inserted into the functions below. \textcolor{red}{Please check that you also agree with these values :)}
+\textcolor{red}{You could check that you arrive at the same values also (or test with other values, perhaps that is better)}
 
-In the functions `likfit` below, the first initial value is for the partial sill and the second initial value is for the range. We have used the default trend of `cte` in `likfit`. \textcolor{red}{What do you think about this?}
+The four suggested theoretical variaograms are fitted using weighted least squares, as shown below. The weights used are the ones proposed by Cressie (1985). The initial values for the sill and range are given as the first and second coordinate of the 'ini' vector, respectively. Moreover, we are using models with nugget effect, which means that the nugget is estimated as well, with initial value given by 'nugget' in each function call. 
 
 ```{r, results = "hide"}
-#Fit an exponential model with nugget effect.
-lk1 <- likfit(geoelevs2, cov.model = "exponential", ini =c(3,0.19),
-              fix.nugget = F, nugget =0.18 ,lik.method = "REML")
+# Exponential variogram. 
+wls1 <- variofit(bin, cov.model = "exponential", ini = c(118,12),
+                 fix.nugget = F, nugget =25 , weights="cressie")
 
-# Fit a Gaussian model. 
-lk2 <- likfit(geoelevs2, cov.model = "gaussian", ini = c(3,0.19),
-              fix.nugget = F, nugget =0.09 ,lik.method = "REML")
+# Gaussian variogram.
+wls2 <- variofit(bin, cov.model = "gaussian", ini = c(88,8),
+                 fix.nugget = F, nugget =42, weights="cressie")
 
-# Fit a spherical model with nugget effect. 
-lk3 <- likfit(geoelevs2, cov.model = "spherical", ini = c(1.29,0.41),
-              fix.nugget = F, nugget =0.41,lik.method = "REML")
+# Spherical. 
+wls3 <- variofit(bin, cov.model = "spherical", ini = c(130,30),
+                 fix.nugget = F, nugget =42, weights="cressie")
 
-# Fit a Matérn model. 
-lk4 <- likfit(geoelevs2, cov.model = "matern", ini = c(2.03,0.41),
-              fix.nugget = F, nugget =0.19, fix.kappa = FALSE, kappa=0.95,lik.method = "REML") 
-# Kappa is the smoothing parameter for the Matérn model. 
+# Matérn variogram.
+wls4 <- variofit(bin, cov.model = "matern", ini = c(105,16),
+                 fix.nugget = F, nugget =42, fix.kappa = FALSE, kappa=0.5,weights="cressie")
 
 # Increase number of bins to estimate the variograms (as done in 'variogramaEstimationScallops3.R')?
 # This estimates a new sample variogram I think. Should this be done earlier, in problem 2/3 already perhaps?
 ```
 
-The parametric variograms are plotted together with the empirical variogram below. LOOKS LIKE SHIT WITH THE MAXIMUM LIKELIHOOD. 
-
-```{r}
-par(mfrow=c(1, 1))
-plot(bin,  main = "PARAMETRIC VARIOGRAMS",cex.main = 1, pch = 16)
-lines(lk1, lwd = 2, col = "red", max.dist = maxdist/2)
-lines(lk2, lwd = 2, col = "blue", max.dist = maxdist/2)
-lines(lk3, lwd = 2, col = "green3", max.dist = maxdist/2)
-lines(lk4, lwd = 2, col = "yellow", max.dist = maxdist/2)
-legend(x = "bottomright", inset = 0.01, lty = c(1, 1), col = c("red", "blue", "green3","yellow"),
-       legend = c("Exponential", "Gaussian", "Spherical","Matérn"), cex = 1)
-```
-
-I AM TRYING WITH LEAST SQUARES AS WELL: comment on what Cressie is. 
-
-```{r, results = "hide"}
-# Exponential variogram. 
-wls1 <- variofit(bin, cov.model = "exponential", ini = c(3,0.19),
-                 fix.nugget = F, nugget =0.18 , weights="cressie")
-
-# Gaussian variogram.
-wls2 <- variofit(bin, cov.model = "gaussian", ini = c(3,0.19),
-                 fix.nugget = F, nugget =0.09, weights="cressie")
-
-# Spherical. 
-wls3 <- variofit(bin, cov.model = "spherical", ini = c(1.29,0.41),
-                 fix.nugget = F, nugget =0.4, weights="cressie")
-
-# Matérn variogram.
-wls4 <- variofit(bin, cov.model = "matern", ini = c(2,0.4),
-                 fix.nugget = F, nugget =0.2, fix.kappa = FALSE, kappa=0.95,weights="cressie")
-```
+The parametric variaograms are plotted with the empirical variogram below. 
 
 ```{r}
 par(mfrow=c(1, 1))
@@ -278,27 +239,17 @@ legend(x = "bottomright", inset = 0.01, lty = c(1, 1), col = c("red", "blue", "g
        legend = c("Exponential", "Gaussian", "Spherical","Matérn"), cex = 1)
 ```
 
-THE LEAST SQUARED LOOKS WAY BETTER, HENCE WILL CONTINUE WORKING WITH THOSE FOR NOW. MAYBE NEED TO USE BIN2 ?
-
-Selecting the variograms that best fit the data can be done by a combination of inspecting the semivariance plot (qualitative), comparing the sum of squares from the minimizations and comparing the AIC \textcolor{red}{AIC only seems to exist for maximum likelihood}. From inspection it looks like the Exponential and the Matérn are the two best models. The quantiative measures are summarized in the table below. 
+Selecting the variograms that best fit the data can be done by a combination of inspecting the semivariance plot (qualitative) and comparing the sum of squares from the minimizations. From inspection it looks like the Spherical and the Gaussian/Matérn (they are practically on top of each other) are the two best models. The quantitative measures are summarized in the table below. 
 
 ```{r}
-comparison <- data.frame("Model" = c("Exponential", "Gaussian", "Spherical","Matérn"),
-                "Sum of Squares" = c(summary(wls1)$sum.of.squares, summary(wls2)$sum.of.squares,
-                    summary(wls3)$sum.of.squares, summary(wls4)$sum.of.squares), 
-                        "AIC" = c(0,0,0,0))
-knitr::kable(comparison)
+comparison <- cbind(c("Exponential", "Gaussian", "Spherical","Matérn"),
+                    c(summary(wls1)$sum.of.squares[[1]], summary(wls2)$sum.of.squares[[1]],
+                    summary(wls3)$sum.of.squares[[1]], summary(wls4)$sum.of.squares[[1]]))
+colnames(comparison) = c("Model", "Sum of Squares")
+knitr::kable(comparison, caption = "Sum of Squares of each of the estimated parametric models.")
 ```
 
-From the table we can see that the visual insights are further substantiated by the sum of squares. Hence, we choose the Exponential and Matérn models. Now, let us explain the parameters from the models. First of all, the parameters are the following
-
-```{r}
-# looks like the maximum likelihood also gives a lot more parameters ?
-# Maybe we should use the max likelihood if we can get it to work properly!
-wls1$nugget
-wls4$nugget
-```
-
+From the table we see that the Spherical and the Gaussian models have the smallest sum of squares, which is in accordance with what we thought from the plot above. Hence, we choose the Spherical and Gaussian models. Now, let us explain the parameters from the models. 
 
 In general the parameters of the variogram represent the following quantities:
 
@@ -310,13 +261,135 @@ In general the parameters of the variogram represent the following quantities:
 
 Now, how about the parameters of the chosen variograms? 
 
-## 5. Predictions of elevations along the area of study
-
-In this final problem we will use kriging to predict elevations along the area of study. This will be done using the two best variaograms among the four proposed theoretical variograms in problem 4. 
+The estimated parameters of the two models are 
 
 ```{r}
-# Make grid for kriging and do it. 
+# Spherical.
+spherical <- cbind("Partial Sill"=summary(wls3)$spatial.component[[1]], 
+                   "Range"=summary(wls3)$spatial.component[[2]], 
+                   "Nugget" = summary(wls3)$nugget.component[[1]])
+knitr::kable(spherical, caption = "Estimated Spherical model parameters")
+
+# Gaussian.
+gaussian <- cbind("Partial Sill"=summary(wls2)$spatial.component[[1]], 
+                  "phi"=summary(wls2)$spatial.component[[2]], 
+                  "Nugget" = summary(wls2)$nugget.component[[1]])
+knitr::kable(gaussian, caption = "Estimated Gaussian model parameters")
 ```
 
-# General questions to profe: 
-* Should we somehow comment on if the random process is Stationary, Weak Stationary or Intrinsic Stationary?
+From Table 2 we can see that the predicted sill of the Spherical model is $\approx$ `r round(summary(wls3)$spatial.component[[1]] + summary(wls3)$nugget.component[[1]], 2)` (partial sill + nugget) and the range is $\approx$ `r round(summary(wls3)$spatial.component[[2]], 2)`.
+
+From Table 3 we can see that the predicted sill of the Gaussian model is $\approx$ `r round(summary(wls2)$spatial.component[[1]] + summary(wls2)$nugget.component[[1]], 2)` (partial sill + nugget) and the range is $\sqrt{3}\phi \approx$ `r round(summary(wls2)$spatial.component[[2]] * sqrt(3), 2)`, which is the distance to reach 95\% of the sill in the Gaussian model.
+
+## 5. Predictions of elevations along the area of study
+
+In this final problem we will use kriging to predict elevations along the area of study. This will be done using the two best variograms among the four proposed theoretical variograms in problem 4. 
+
+```{r}
+coord.geo <- as.geodata(coordinates)
+
+rnx <- range(geoelevs2$coords[,1])
+rny <- range(geoelevs2$coords[,2])
+newx.grid <- seq(rnx[1],rnx[2],l=51)
+newy.grid <- seq(rny[1],rny[2],l=51)
+dsgr.grid <- expand.grid(newx=newx.grid, newy=newy.grid)
+```
+
+We tried Simple Kriging and Universal Kriging for both the Spherical and the Gaussian variograms. The predictions look very similar, but we think that the Universal Kriging should be the preferred method here, since we have observed a trend in the data earlier. However, the standard errors are the same in both methods, as seen in the plots. \textcolor{red}{Why does this happen?}
+
+```{r, results = "hide"}
+# Need to estimate the chosen variograms again, on the original data. 
+bin3 <- variog(geoelevs, option = "bin", pairs.min=30, max.dist=maxdist/2,
+                estimator.type = "modulus", uvec=seq(0,maxdist/2,l=30))
+
+# New estimation of Spherical variogram. 
+wls3.2 <- variofit(bin3, cov.model = "spherical", ini = c(130,30),
+                 fix.nugget = F, nugget =42, weights="cressie")
+
+# New estimation of Gaussian variogram. 
+wls2.2 <- variofit(bin3, cov.model = "gaussian", ini = c(88,8),
+                 fix.nugget = F, nugget =42, weights="cressie")
+
+OK.spherical <- krige.conv(geoelevs,coords= geoelevs$coords,
+                data=geoelevs$data,locations= dsgr.grid, borders = coordinates[,c(1,2)],
+                krige =krige.control(type.krige="OK",
+                            obj.m = wls3.2,trend.l= ~coords[,2]+poly(coords[,1],2),
+                            trend.d=~coords[,2]+poly(coords[,1],2)))
+
+SK.spherical <- krige.conv(geoelevs,coords= geoelevs$coords,
+                data=geoelevs$data,locations= dsgr.grid, borders = coordinates[,c(1,2)],
+                krige =krige.control(type.krige="SK",obj.m = wls3.2))
+
+OK.gaussian <- krige.conv(geoelevs,coords= geoelevs$coords,
+                data=geoelevs$data,locations= dsgr.grid, borders = coordinates[,c(1,2)],
+                krige =krige.control(type.krige="OK",
+                            obj.m = wls2.2,trend.l= ~coords[,2]+poly(coords[,1],2),
+                            trend.d=~coords[,2]+poly(coords[,1],2)))
+
+SK.gaussian <- krige.conv(geoelevs,coords= geoelevs$coords,
+                data=geoelevs$data,locations= dsgr.grid, borders = coordinates[,c(1,2)],
+                krige =krige.control(type.krige="SK",obj.m = wls2.2))
+```
+
+```{r}
+# Kriging with Spherical variogram model. 
+contour(OK.spherical,filled=TRUE,coords.data=geoelevs$coords,color=heat.colors, 
+        main="Universal kriging estimates (Spherical)")
+
+
+contour(OK.spherical,val=sqrt(SK.spherical$krige.var),
+        filled=TRUE,coords.data=geoelevs$coords,color=cm.colors, 
+        main="Universal kriging std. errors (Spherical)")
+
+contour(SK.spherical,filled=TRUE,coords.data=geoelevs$coords,color=heat.colors, 
+        main="Simple kriging estimates (Spherical)")
+
+contour(SK.spherical,val=sqrt(SK.spherical$krige.var),
+        filled=TRUE,coords.data=geoelevs$coords,color=cm.colors, 
+        main="Simple kriging std. errors (Spherical)")
+
+# Kriging with Gaussian variogram model. 
+
+contour(OK.gaussian,filled=TRUE,coords.data=geoelevs$coords,color=heat.colors, 
+        main="Universal kriging estimates (Gaussian)")
+
+contour(OK.gaussian,val=sqrt(SK.gaussian$krige.var),
+        filled=TRUE,coords.data=geoelevs$coords,color=cm.colors, 
+        main="Universal kriging std. errors (Gaussian)")
+
+contour(SK.gaussian,filled=TRUE,coords.data=geoelevs$coords,color=heat.colors, 
+        main="Simple kriging estimates (Gaussian)")
+
+contour(SK.gaussian,val=sqrt(SK.gaussian$krige.var),
+        filled=TRUE,coords.data=geoelevs$coords,color=cm.colors, 
+        main="Simple kriging std. errors (Gaussian)")
+```
+
+The best variogram model for kriging will be chosen using cross-validation, as is done below. 
+
+```{r, results = "hide"}
+VC1 <- function(xv){
+  mean(xv$error/sqrt(xv$krige.var))
+}
+
+VC2 <- function(xv){
+  sqrt(mean((xv$error/sqrt(xv$krige.var))^2))
+}
+  
+VC3 <- function(xv){
+  sqrt(mean(xv$error^2))
+}
+
+xv.spherical <- xvalid(geoelevs, model = wls3.2, reestimate = F)
+xv.gaussian <- xvalid(geoelevs, model = wls2.2, reestimate = F)
+
+cross.validation <- cbind("Value" = c("VC1", "VC2", "VC3"), 
+                          "Spherical" = c(VC1(xv.spherical), VC2(xv.spherical), VC3(xv.spherical)), 
+                          "Gaussian"= c(VC1(xv.gaussian), VC2(xv.gaussian), VC3(xv.gaussian)))
+```
+
+```{r}
+knitr::kable(cross.validation, caption = "Values from cross-validation")
+```
+
+The best model has $\text{VC}1 \approx 0, \text{VC}2 \approx 1$ and low values of $\text{VC}3$. As is apparent from the table above, the models look very similar, but VC1 and VC2 are both better for the Gaussian variogram model. Even though VC3 is better for thte Spherical model, we conclude that the Gaussian model is the best. Another reason to why we conclude this is that the standard errors in the kriging predictions when using the Gaussian model look slightly smaller in the plots given above, when comparing to the Spherical model. Either way, both models are very similar and give very similar predictions. 

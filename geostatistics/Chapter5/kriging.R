@@ -1,6 +1,6 @@
 library(geoR)
 
-setwd("/home/ajo/gitRepos/spatial/Chapter5")
+setwd("/home/ajo/gitRepos/spatial/geostatistics/Chapter5")
 
 load("scallops.Rdata")
 
@@ -15,11 +15,11 @@ load("scallops.Rdata")
 
 plot(geoscal.rot)
 #Preditions locations
-rnx <- range(geoscal.rot$coords[,1]);
-rny <- range(geoscal.rot$coords[,2]);
-newx.grid <- seq(rnx[1],rnx[2],l=51);
-newy.grid <- seq(rny[1],rny[2],l=51);
-dsgr.grid <- expand.grid(newx=newx.grid, newy=newy.grid);
+rnx <- range(geoscal.rot$coords[,1])
+rny <- range(geoscal.rot$coords[,2])
+newx.grid <- seq(rnx[1],rnx[2],l=51)
+newy.grid <- seq(rny[1],rny[2],l=51)
+dsgr.grid <- expand.grid(newx=newx.grid, newy=newy.grid)
 plot(dsgr.grid)
 
 
@@ -82,9 +82,9 @@ contour(kc1,filled=TRUE,coords.data=geoscal.rot$coords,color=terrain.colors,bord
 xv <- xvalid(geoscal.rot, model =lk1, reestimate = F)
 names(xv)
 
-VC1 <- mean(xv$error/sqrt(xv$krige.var));
-VC2 <- sqrt(mean((xv$error/sqrt(xv$krige.var))^2));
-VC3 <- sqrt(mean(xv$error^2));
+VC1 <- mean(xv$error/sqrt(xv$krige.var))
+VC2 <- sqrt(mean((xv$error/sqrt(xv$krige.var))^2))
+VC3 <- sqrt(mean(xv$error^2))
 VC1;VC2;VC3
 
 
@@ -115,3 +115,4 @@ VC3.2 <- sqrt(mean(xv.2$error^2));
 VC1.2;VC2.2;VC3.2
 #Compare with the variogram exponential
 VC1;VC2;VC3
+
