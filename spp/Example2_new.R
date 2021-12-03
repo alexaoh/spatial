@@ -2,26 +2,27 @@ library(spatstat)
 data(bei)
 plot(bei)
 
-setwd("/home/ajo/gitRepos/spatial/spp/Example2_Data")
 
 #Homogeneous
 summary(bei)
 lamb=summary(bei)$intensity
 lamb
 
-(Q <- quadratcount(bei, nx = 4, ny = 2))
+quadratcount(bei, nx = 4, ny = 2)
+Q <- quadratcount(bei, nx = 4, ny = 2)
 plot(bei, cex = 0.5, pch = "+")
+
 plot(Q, add = TRUE, cex = 2)
 
 
 #nonparametric estimation of density
 
 # Searching bandwidth
-b1<-bw.diggle(bei) #Mean square error.
+b1<-bw.diggle(bei)
 
 b2<-bw.ppl(bei)
 
-b3<-bw.scott(bei) # Estimate for bandwidth for Gaussian kernel. 
+b3<-bw.scott(bei)
 
 b4<-bw.CvL(bei)
 
@@ -70,7 +71,7 @@ plot(bei, add = TRUE, cex = 0.5)
 Z <- bei.extra$grad
 b <- quantile(Z, probs = (0:4)/4)
 b
-(Zcut <- cut(Z, breaks = b, labels = 1:4))
+Zcut <- cut(Z, breaks = b, labels = 1:4)
 V <- tess(image = Zcut)
 plot(V,valuesAreColours=FALSE)
 plot(bei, add = TRUE, pch = 16)
@@ -170,7 +171,7 @@ plot(n84p, add = TRUE, cex = 0.5)
 
 den <- density(n84p, sigma = 10,edge=F)
 plot(den)
-plot(n84p, add = TRUE, cex = 0.5)
+plot(n84p, add = TRUE, cex = 0.5, pch=16)
 
 
 
@@ -317,7 +318,7 @@ grid_veg<-read.table("grid_veg.txt",header=T)
 mat<-as.matrix(read.table("height.txt"))
 height<-im(mat,grid$x,grid$y)
 plot(height,axis=T)
-plot(n84p, add=T, cex=0.5)
+plot(n84p, add=T, cex=0.5, pch=16)
 
 
 mat<-as.matrix(read.table("veg.txt"))
@@ -402,10 +403,14 @@ model3
 plot(model3,se=F)
 anova(model3,model2,test="LRT")
 
+# Increase when gradient increases with 1. 
+exp(model3$coef[4])
+
 model4=ppm(bei, ~x+y+grad+elev)
 model4
 plot(model4,se=F)
 anova(model3,model4,test="LRT")
+
 
 # Other visualizations
 plot(model4,trend=F,se=T,superimpose=F)
@@ -424,7 +429,7 @@ AIC(model1)
 AIC(model2)
 AIC(model3)
 AIC(model4)
-
+# Lowest AIC is the better model. 
 
 
 # Checking the fitted Poisson model
@@ -449,8 +454,7 @@ plot(KS)
 plot(predict(model4))
 plot(bei, add = TRUE, pch = "+")
 
-sum(eem(model4, check=TRUE))/area(bei)
-Window(bei)
+sum(eem(model4))/area(bei)
 
 
 #Smoothed residuals
@@ -468,7 +472,6 @@ lurking(model4, elev, type = "raw")
 
 lurking(model4, grad, type = "raw", cumulative = FALSE)
 lurking(model4, elev, type = "raw", cumulative = FALSE)
-
 
 # Categorize elevation
 
@@ -529,6 +532,14 @@ par(mfrow=c(1,2))
 diagnose.ppm(model5, which = "smooth",type="pearson",sigma=30)
 diagnose.ppm(model6, which = "smooth",type="pearson",sigma=30)
 par(mfrow=c(1,1))
+
+3/(2*30*sqrt(pi))
+
+sum(eem(model4))/area(bei)
+sum(eem(model5))/area(bei)
+sum(eem(model6))/area(bei)
+
+
 
 # Lurking variable plot
 lurking(model6, expression(x), type = "raw")
@@ -612,11 +623,12 @@ M
 plot(n84p, pch = ".")
 plot(M, add = TRUE, cex = 1.5, col = "red")
 
-obs<-M$observed
-quadratsM <- tiles(as.tess(M))
-plot(quadratsM)
+# Compute the area of each subregion
+Z<-quadratcount(n84p, nx = 2, ybreaks = c(-100,0,25,50,100))
+quadratsM <- tiles(as.tess(Z))
 quadrat.areas <- unlist(lapply(quadratsM, area.owin))
 
+# Expected proportions
 p.exp<-M$expected/sum(M$expected)
 
 chisq.test(M$observed,p=p.exp)$expected
@@ -651,6 +663,7 @@ plot(n84p, add = TRUE, pch = "+")
 #Smoothed residuals
 
 diagnose.ppm(model5, which = "smooth",type="pearson",sigma=5)
+3/(2*5*sqrt(pi))
 
 
 # Lurking variable plot
