@@ -1,0 +1,195 @@
+---
+title: "Exercises for Spatial Point Processes"
+subtitle: "Spatial Epidemiologi Autumn 2021"
+author: "Alexander, Victor, Mikel"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+params: 
+  show_code: FALSE
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    theme: readable
+    highlight: textmate
+    number_sections: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F)
+rm(list = ls())
+setwd("/home/ajo/gitRepos/spatial/spp/Assignment")
+library(spatstat)
+```
+
+# Task 1
+
+## Data import and cleaning
+
+```{r data-import}
+nucli.23=read.table(file="nucli23.txt",header=T,sep="\t")
+head(nucli.23)
+summary(nucli.23)
+
+poly.23=read.table(file=paste("poly23.txt"),header=T,sep="\t")
+summary(poly.23)
+
+# Change reference of X and Y (to 0). 
+min.X=min(nucli.23$X)
+min.Y=min(nucli.23$Y)
+nucli.23$X=nucli.23$X-min.X
+nucli.23$Y=nucli.23$Y-min.Y
+summary(nucli.23)
+
+poly.23$X=poly.23$X-min.X
+poly.23$Y=poly.23$Y-min.Y
+summary(poly.23)
+```
+
+## 1.1) Build a ppp object using the “poly23” data as a window. 
+
+```{r}
+pol.illa<-list(x=poly.23$X,y=poly.23$Y)
+n23=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa)
+plot(n23,main="nucli23")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+```
+
+## 1.2) Briefly describe the point pattern process. 
+
+```{r}
+summary(n23)
+n23.den<-density(n23,dimyx=c(256,256))
+plot(n23.den)
+plot(density(n23, dimyx=c(256,256), sigma=1))
+plot(density(n23, dimyx=c(256,256), sigma=5))
+plot(density(n23, dimyx=c(256,256), sigma=7.5))
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+plot(density(n23, dimyx=c(256,256), sigma=10))
+plot(density(n23, dimyx=c(256,256), sigma=20))
+plot(density(n23, dimyx=c(256,256), sigma=50))
+```
+
+We can see that sigma = 20 and sigma = 50 gives too much smoothing. Similarly, we can see that sigma = 1 gives to little smoothing. The density with sigma between 5 and 10 looks more informative. 
+
+Additionally, we can see that the process is not homogeneous. There are some regions that clearly have a larger intensity of points. The regions around $(x,y) = (60, 25)$ and $(x,y) = (30,60)$ are two examples, where the first one has the largest intensity. 
+
+## 1.3) Rebuild the ppp object using the “time to nest” (data_pos variable) as marks.
+
+```{r}
+(n23T=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa,marks=nucli.23$data_pos))
+```
+
+## 1.4) Briefly describe the marked point process. 
+
+```{r}
+summary(n23T)
+plot(n23T,main="nucli23",markscale=0.2,leg.side="right")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+# Hard to interpret, categorize time into categories for every 4 days instead. 
+
+DPOScat=cut(nucli.23$data_pos,breaks=c(9, 12, 14,16, 18, 20, 23),labels=c("10-12","12-14","14-16","16-18", "18-20", "20-22"))
+table(DPOScat) # Are no points 12-14. Thus, merge 10-12 and 12-14 into 10-14.
+DPOScat=cut(nucli.23$data_pos,breaks=c(9, 14,16, 18, 20, 22),labels=c("10-14","14-16","16-18", "18-20", "20-22"))
+table(DPOScat) # Are no points 12-14. Thus, merge 10-12 and 12-14 into 10-14.
+(n23Tcat=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa,marks=DPOScat))
+summary(n23Tcat)
+plot(split(n23Tcat))
+
+plot(n23Tcat,main="nucli23",cex=0.75,cols=c("purple", "green", "blue","red", "black"),
+     chars=rep(16,4),leg.side="right")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+
+plot(density(split(n23Tcat), sigma = 7.5), ribbon = F)
+
+nucli.23.df=data.frame(nucli.23,DPOScat)
+n23new=split(nucli.23.df,DPOScat)
+for (i in 1:5){
+  temp.ppp=ppp(n23new[[i]]$X,n23new[[i]]$Y,poly=pol.illa)
+  plot(temp.ppp,pch=i,main=c("Group",i))
+  axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+  axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+  par(ask=T)
+}
+par(ask=F)
+```
+
+It is hard to see a clear pattern in how the point process evolves with time, but we can make some remarks: 
+It looks like the area we noted as high intensity at first ((x,y) = (60, 25)) stays high intensity through all times that were recorded. One can think that it never gets saturated with nests, i.e. it is a good area for nesting, with room,throughout all recorded time. The other area we noted as relatively high intensity ((x,y) = (30,60)) is most "popular" for nesting between weeks 16 and 20. There is also an area around (x,y) = (10,90) (in the north-west) that has some nests in all weeks.
+
+# Task 2
+
+## 2.1) Give a point estimate and a 95% confidence interval of the intensity, assuming a homogeneous Poisson process. 
+
+When assuming a homogeneous Poisson process, a point estimate of the intensity is simply the average intensity in the window. This means that the point estimate can be read from the summary of the ppp-object, 
+
+```{r}
+summary(n23)
+```
+
+i.e. the point estimation is `r summary(n23)$intensity`. The confidence interval can be found from the results shown below **I think!!??**
+
+```{r}
+model1=ppm(n23, ~1)
+model1
+```
+
+
+## 2.2) Assess the Completely Spatial Randomness hypothesis. 
+
+The Completely Spatial Randomness (CSR) hypothesis can be assessed with a chi-squared test based on quadrat counts or a Kolmogorov-Smirnov test. First, let us perform the chi-squared test
+
+```{r}
+# Tried to set own brakes, but did not get it to work properly. 
+#M <- quadrat.test(n23, xbreaks = c(0, 20, 40, 60), ybreaks = c(20, 40, 60, 80, 100))
+M <- quadrat.test(n23, nx = 2, ny = 3)
+M
+plot(n23,main="nucli23")
+plot(M, add = TRUE)
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+```
+
+Since the test above has a very large $p$-value, we cannot conclude that this is a completely random spatial process, since we cannot reject the null hypothesis of CSR. **Not sure if this makes sense right now, think more**
+
+http://rstudio-pubs-static.s3.amazonaws.com/5292_2b2fae3795a144b2a4b486fd2fc6fc57.html
+
+Next, the Kolmogorov-Smirnov test is performed. 
+
+```{r}
+KS=cdf.test(n23,covariate="x")
+KS
+plot(KS)
+
+KS=cdf.test(n23,covariate="y")
+KS
+plot(KS)
+```
+
+The $p$-values from this test are also quite large, which means that the Kolmogorov-Smirnov test does not give enough evidence against the null hypothesis of CSR.
+
+Thus, both these two tests lead to the same conclusion; we cannot reject the null-hypothesis of CSR, i.e. we have no evidence of this process not being CSR. 
+  
+## 2.3) Fit an inhomogeneous Poisson model to data. 
+
+```{r}
+# fit an homogeneous poisson model
+model1=ppm(n23, ~1)
+model1
+plot(model1)
+
+# inhomogeneous Poisson model
+model2=ppm(n23, ~x + y)
+model2
+plot(model2, se=F)
+```
+
+**Look at some residuals or something as well?**
+
+# Task 3
