@@ -1,0 +1,558 @@
+---
+title: "Exercises for Spatial Point Processes"
+author: "Alexander, Victor, Mikel"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+    theme: readable
+    highlight: textmate
+    number_sections: no
+subtitle: Spatial Epidemiologi Autumn 2021
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F)
+rm(list = ls())
+#setwd("C:\\Users\\user\\Desktop\\Uni\\Master\\Epidemologia espacial\\Spatial point patterns\\Practica3")
+setwd("/home/ajo/gitRepos/spatial/spp/Assignment")
+library(spatstat)
+library(RandomFields)
+library(readr)
+library(spatstat)
+library(sparr)     
+library(dplyr)
+library(mgcv)
+library(splancs)
+```
+
+# Task 1
+
+## Data import and cleaning
+
+```{r data-import}
+nucli.23=read.table(file="nucli23.txt",header=T,sep="\t")
+head(nucli.23)
+summary(nucli.23)
+
+poly.23=read.table(file=paste("poly23.txt"),header=T,sep="\t")
+summary(poly.23)
+
+# Change reference of X and Y (to 0). 
+min.X=min(nucli.23$X)
+min.Y=min(nucli.23$Y)
+nucli.23$X=nucli.23$X-min.X
+nucli.23$Y=nucli.23$Y-min.Y
+summary(nucli.23)
+
+poly.23$X=poly.23$X-min.X
+poly.23$Y=poly.23$Y-min.Y
+summary(poly.23)
+```
+
+## 1.1) Build a ppp object using the “poly23” data as a window. 
+
+```{r}
+pol.illa<-list(x=poly.23$X,y=poly.23$Y)
+n23=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa)
+plot(n23,main="nucli23")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+```
+
+## 1.2) Briefly describe the point pattern process. 
+
+```{r}
+summary(n23)
+n23.den<-density(n23,dimyx=c(256,256))
+plot(n23.den)
+plot(density(n23, dimyx=c(256,256), sigma=1))
+plot(density(n23, dimyx=c(256,256), sigma=5))
+plot(density(n23, dimyx=c(256,256), sigma=7.5))
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+plot(density(n23, dimyx=c(256,256), sigma=10))
+plot(density(n23, dimyx=c(256,256), sigma=20))
+plot(density(n23, dimyx=c(256,256), sigma=50))
+```
+
+We can see that sigma = 20 and sigma = 50 gives too much smoothing. Similarly, we can see that sigma = 1 gives to little smoothing. The density with sigma between 5 and 10 looks more informative. 
+
+Additionally, we can see that the process is not homogeneous. There are some regions that clearly have a larger intensity of points. The regions around $(x,y) = (60, 25)$ and $(x,y) = (30,60)$ are two examples, where the first one has the largest intensity. 
+
+## 1.3) Rebuild the ppp object using the “time to nest” (data_pos variable) as marks.
+
+```{r}
+(n23T=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa,marks=nucli.23$data_pos))
+```
+
+## 1.4) Briefly describe the marked point process. 
+
+```{r}
+summary(n23T)
+plot(n23T,main="nucli23",markscale=0.2,leg.side="right")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+# Hard to interpret, categorize time into categories for every 4 days instead. 
+
+DPOScat=cut(nucli.23$data_pos,breaks=c(9, 12, 14,16, 18, 20, 23),labels=c("10-12","12-14","14-16","16-18", "18-20", "20-22"))
+table(DPOScat) # Are no points 12-14. Thus, merge 10-12 and 12-14 into 10-14.
+DPOScat=cut(nucli.23$data_pos,breaks=c(9, 14,16, 18, 20, 22),labels=c("10-14","14-16","16-18", "18-20", "20-22"))
+table(DPOScat) # Are no points 12-14. Thus, merge 10-12 and 12-14 into 10-14.
+(n23Tcat=ppp(nucli.23$X,nucli.23$Y,poly=pol.illa,marks=DPOScat))
+summary(n23Tcat)
+plot(split(n23Tcat))
+
+plot(n23Tcat,main="nucli23",cex=0.75,cols=c("purple", "green", "blue","red", "black"),
+     chars=rep(16,4),leg.side="right")
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+
+plot(density(split(n23Tcat), sigma = 7.5), ribbon = F)
+
+nucli.23.df=data.frame(nucli.23,DPOScat)
+n23new=split(nucli.23.df,DPOScat)
+for (i in 1:5){
+  temp.ppp=ppp(n23new[[i]]$X,n23new[[i]]$Y,poly=pol.illa)
+  plot(temp.ppp,pch=i,main=c("Group",i))
+  axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+  axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+  par(ask=T)
+}
+par(ask=F)
+```
+
+It is hard to see a clear pattern in how the point process evolves with time, but we can make some remarks: 
+It looks like the area we noted as high intensity at first ((x,y) = (60, 25)) stays high intensity through all times that were recorded. One can think that it never gets saturated with nests, i.e. it is a good area for nesting, with room,throughout all recorded time. The other area we noted as relatively high intensity ((x,y) = (30,60)) is most "popular" for nesting between weeks 16 and 20. There is also an area around (x,y) = (10,90) (in the north-west) that has some nests in all weeks.
+
+# Task 2
+
+## 2.1) Give a point estimate and a 95% confidence interval of the intensity, assuming a homogeneous Poisson process. 
+
+When assuming a homogeneous Poisson process, a point estimate of the intensity is simply the average intensity in the window. This means that the point estimate can be read from the summary of the ppp-object, 
+
+```{r}
+summary(n23)
+```
+
+i.e. the point estimation is `r summary(n23)$intensity`. The confidence interval (on the log-scale) can be found from the results shown below 
+
+```{r}
+model1=ppm(n23, ~1)
+model1
+```
+
+Thus, the 95\% confidence interval is (`r exp(-4.559487)`, `r exp(-3.906166)`).
+
+## 2.2) Assess the Completely Spatial Randomness hypothesis. 
+
+The Completely Spatial Randomness (CSR) hypothesis can be assessed with a chi-squared test based on quadrat counts or a Kolmogorov-Smirnov test. First, let us perform the chi-squared test
+
+```{r}
+M <- quadrat.test(n23, nx = 2, ny = 3)
+M
+plot(n23,main="nucli23")
+plot(M, add = TRUE)
+axis(1,at=c(seq(0,75,by=25)),pos=c(-10,0))
+axis(2,at=c(seq(0,100,by=25)),pos=c(-10,-0))
+```
+
+Since the test above has a very large $p$-value, we cannot conclude that this is NOT a completely random spatial process, since we cannot reject the null hypothesis of CSR. This means that we would conclude that the data is not significantly different from a CSR process. 
+
+Next, the Kolmogorov-Smirnov test is performed. 
+
+```{r}
+KS=cdf.test(n23,covariate="x")
+KS
+plot(KS)
+
+KS=cdf.test(n23,covariate="y")
+KS
+plot(KS)
+```
+
+The $p$-values from this test are also quite large, which means that the Kolmogorov-Smirnov test does not give enough evidence against the null hypothesis of CSR.
+
+Thus, both these two tests lead to the same conclusion; we cannot reject the null-hypothesis of CSR, i.e. we have no evidence of this process not being CSR. 
+  
+## 2.3) Fit an inhomogeneous Poisson model to data. 
+
+```{r}
+# fit n homogeneous poisson model
+model1=ppm(n23, ~1)
+model1
+plot(model1)
+
+# inhomogeneous Poisson model
+model2=ppm(n23, ~x + y)
+model2
+plot(model2, se=F)
+```
+
+As for the model validation, we have to look at the goodness-of-fit and the residuals.
+
+```{r}
+#KS goodness-of-fit
+M <- quadrat.test(model2, nx = 4, ny = 2)
+M
+plot(n23, pch = ".")
+plot(M, add = TRUE, cex = 1.5, col = "red")
+
+KS=cdf.test(model2,"y")
+KS
+plot(KS)
+
+KS=cdf.test(model2,"x")
+KS
+plot(KS)
+```
+
+As we can see form the Kolmogorov-Smirnov test, the observed values are very similar to those expected. Besides the p-value is 0.2339 therefore we can not reject the null hypothesis meaning that the model is true.
+
+In order to go further the validation with residuals is done.
+```{r}
+#Validation with residuals
+plot(predict(model2))
+plot(n23, add = TRUE, pch = "+")
+
+sum(eem(model2))/area(n23)
+```
+
+We see that the prediction is quite accurate with the plot of the points. Besides the parameter of the fitting is near 1 meaning that this models fits well as a Poisson. Therefore the inhomogeneous Poisson model is a good model for describing this situation of nesting.
+
+
+# Task 3
+
+## 3.1) Explore the pattern of interaction.
+
+First we see the Empty Space distances in order to see the distance of a fixed location in the window to the nearest data point.
+
+```{r}
+# Empty space function
+Fc <- Fest(n23)
+Fc
+par(pty = "s")
+plot(Fest(n23,correction="best"),legend=T)
+
+```
+
+We can see how the Edge corrected distribution function (the black line) is a little bit below of the Homogeneous Poisson Distribution (red line). This shows we have a Clustered Pattern in this case.
+
+If we see the envelope for the pattern interaction:
+
+```{r}
+E <- envelope(n23, Fest, nsim = 19, rank = 1, global = TRUE,correction="best")
+E
+plot(E, main = "global envelopes",legend=F)
+```
+
+We can see that the data fits well in this envelope and follows the simulated interaction model.
+
+Considering now the Nearest Neighbors distances:
+
+```{r}
+# NN function
+par(pty = "s")
+plot(Gest(n23,correction="best"),legend=T)
+
+```
+
+We can see how the Edge corrected distribution function (the black line) is above of the Homogeneous Poisson Distribution (red line). This shows we have a Clustered Pattern for the Nearest Neighbors distances.
+
+If we see the envelope for the pattern interaction:
+
+```{r}
+E <- envelope(n23, Gest, nsim = 19, rank = 1, global = TRUE,correction="best")
+E
+plot(E, main = "global envelopes",legend=F)
+```
+
+Again we can see that the data fits well in this envelope and follows the simulated interaction model.
+
+Finally we consider the Pairwise distances
+
+```{r}
+# Pairwise distances
+par(pty = "s")
+plot(Kest(n23,correction="best"),legend=T)
+```
+
+We can see how the Edge corrected distribution function (the black line) is above of the Homogeneous Poisson Distribution (red line). This shows we have a Clustered Pattern for the Pairwise distances.
+
+If we see the envelope for the pattern interaction:
+
+```{r}
+E <- envelope(n23, Kest, nsim = 19, rank = 1, global = TRUE,correction="best")
+E
+plot(E, main = "global envelopes",legend=F)
+```
+
+We can see again that the data fits well in this envelope and follows the simulated interaction model.
+
+So we can conclude we have some Clusters and the Poisson model fits well the data.
+
+## 3.2) Fit a log‐Gaussian Cox process to data. Comment the results.
+
+```{r}
+fitLG <- kppm(n23, ~1, "LGCP")
+
+plot(fitLG,legend=T,what="statistic")
+```
+
+It can be observed that the Cox-Gauss process, represented by the black line fits better to the data (represented with the red line) than the Poisson model (represented with the green line) in short distances. But in long distances the poisson model fits better the data. In the global computation it seems to be better to model the clusters interactions with the Cox-Gauss model.
+
+## 3.3) Fit a Gibbs process model to data. Comment the results
+
+```{r}
+##################
+# Gibbs process ##
+##################
+
+E <- envelope(n23, Lest, nsim = 19, rank = 1, global = TRUE,correction="best")
+plot(E, main = "global envelopes of L(r)", legend=F)
+```
+
+This graphic show us that the data is well fitted in the Gibbs process (because the black line representing our data interaction is in the gibbs model envoirment represented as the grey area), so our data clusters and regular points interact themselves in a similar way as the Giibs proces model do.
+
+
+# Task 4
+
+##  Using the Primary Biliary Cirrhosis data (PBC) make a case-control point pattern analysis.
+
+```{r, echo=F}
+#Import the  data
+pcbdata <- read_table2("PBCdata.txt")
+#View(pcbdata)
+
+pcbpoly <- read_table2("PBCpoly.txt")
+#View(pcbpoly)
+```
+
+
+Data overview: in this case we have a set of data with the coordinates of the points in which there is the success (biliary cirrhosis) alongside a mark indicating whether it is a case or a control. By comparing both we will be able to see if the case is notably different and therefore it has to be a considerable phenomenon. And by that if there is something that accentuates or diminishes the prevalence of biliary cirrhosis.
+
+First of all the data has to be transformed into spatial point data. And separate the cases from the controls.
+
+
+```{r}
+pbcdata <- read.table(file="PBCdata.txt", header=T, sep="\t",stringsAsFactors = T)
+summary(pbcdata)
+min.X<-min(pbcdata$x)
+min.Y<-min(pbcdata$y)
+
+pbcdata$x<-pbcdata$x-min.X
+pbcdata$y<-pbcdata$y-min.Y
+summary(pbcdata)   
+
+pbcdat <-ppp(pbcdata$x, pbcdata$y, c(-10, 10000), c(-10, 15000))
+plot(pbcdat)
+axis(1,at=c(seq(0,10000,by=250)))
+axis(2,at=c(seq(0,15000,by=250)),pos=c(-10,0))  
+
+
+pbcpoly=read.table(file=paste("PBCpoly.txt"),header=T,sep="\t")
+summary(pbcpoly)
+pbcpoly$x <- pbcpoly$x-min.X
+pbcpoly$y <- pbcpoly$y-min.Y   
+summary(pbcpoly)
+
+
+pbcdata$marks<- as.factor(pbcdata$marks)
+pol.illa<-list(x=pbcpoly$x,y=pbcpoly$y)
+plot(owin(poly=pol.illa),main="plot poly")
+pbcdata_poly=ppp(pbcdata$x,pbcdata$y,poly=pol.illa, marks=pbcdata$marks)
+plot(pbcdata,main="pbcdata")
+axis(1,at=c(seq(-0,10000,by=250)),pos=c(-500,0))
+axis(2,at=c(seq(-100,15000,by=250)),pos=c(-1500,0))
+
+cases <- split(pbcdata_poly)$case
+control <- split(pbcdata_poly)$control
+```
+
+Once the data has been separated and transformed we can compute and plot the relative risk, comparing the cases with the control.
+
+```{r}
+#Intensities
+pcb <- risk(cases,control, log=F, intensity=T)    
+
+#Cases
+plot(pcb$f, ribbon=F, main="Cases")
+
+#Controls
+plot(pcb$g, ribbon=F, main="Controls")
+
+#Relative risk
+plot(pcb$rr, main="Relative risk")
+
+#Reference value
+ref_val <-cases$n/control$n
+
+```
+
+In the first plot, are plotted the cases were we can see there is a high intensity area with some lower density around it. When we compare it with the second plot, the controls, the patter is similar but with greater intensity, When computing the relative risk the graphic changes quite a bit, with the remark of the cluster were previously we saw high risk but with another area of high risk which was not present in the previous graphs. 
+In order to be able to ponderate, the reference value, which is the ratio between the number of cases and controls so we can acknowledge the fact that there will be more general intensity (clear spots) in the control plot. having as reference value `ref_val`
+
+Now let's try if doing the logarithm of the risk we are able to reduce the difference between cases and controls with the relative risk.
+
+```{r}
+#Log intensities
+pcb <- risk(cases, control, log=T, intensity=T)
+
+#Cases
+plot(pcb$f, ribbon=F, main="Cases")
+
+#Controls
+plot(pcb$g, ribbon=F, main="Controls")
+
+#Relative risk
+plot(pcb$rr, main="Relative risk")
+
+#Reference value
+cases$n/control$n
+
+#Sealevel -->yellow
+max(pcb$rr)
+min(pcb$rr)
+plot(pcb$rr, col=beachcolours(c(-8,-1), sealevel = log(cases$n/control$n)), main="Corrected relative risk")
+```
+
+With the log transformed risk applied both plots, "Cases" and "Controls" remain the same but the relative risk is changed through an augmentation (or clarification of differences). The problem is that the plot lacks the sensibility at large risks. That why the plot has to be corrected so now the colors can indicate a difference. Now the plot is more clear and can point out the risk zones. As without the log transformation we have a zone in the midle-lower right of the window with some zones near it, with special mention to the one we saw in the previous plots which locates in the upper midle part of the window.
+
+Once the instensities have been analzed we shall proced with the densities (with the log transformation too as recomended enhancing the risk differences). For this we use the same procedure as before but will try to focous on the places where the probabilty is low.
+
+```{r}
+# Log Densities
+
+pcb <- risk(cases,control)
+
+# The plots of cases and controls remain the same. Will thus not show them again in the report. 
+# # Cases
+# plot(pcb$f, ribbon=F)
+# # Controls
+# plot(pcb$g, ribbon=F)
+
+# Relative risk
+plot(pcb$rr, main="Relative risk")
+
+max(pcb$rr)
+min(pcb$rr)
+plot(pcb$rr,col=beachcolours(c(-6,2), sealevel = 0),main="Relative risk corrected")
+```
+
+As we can see only the positive diagonal corners and in the upper left side edge are areas of low risk. 
+
+In order to know whether these variations are significant or not we need a base to compare. In this case the base is made via simulation, using a permutation test (Monte Carlo test). Hence we will be able to compare the observed kernel density ratios with the simulated ones. 
+
+```{r, results = "hide", warning=FALSE, message=FALSE}
+rho0 <- 0
+pcb <- risk(cases,control)
+
+cellsize <-pcb$rr$xstep*pcb$rr$ystep
+ratiorho <- cellsize*sum((pcb$rr$v-rho0)^2, na.rm=T)
+
+#permutation func
+perm_rr<-function(){
+  new_pc <-rlabel(pbcdata_poly)
+  new_cases <-split(new_pc)$case    
+  new_controls<- split(new_pc)$control    
+  new_pcb <- risk(new_cases, new_controls)
+  cellsize <- new_pcb$rr$xstep*new_pcb$rr$ystep
+  ratio_perm <- cellsize*sum((new_pcb$rr$v-rho0)^2, na.rm=T)
+  ratio_perm
+}
+nsim<-99
+set.seed(1234)
+rperm <-sapply(1:99, function(i) perm_rr())
+```
+
+```{r}
+# P-value
+(sum(rperm > ratiorho)+1)/(nsim+1)
+
+plot(density(rperm))
+ratiorho
+```
+
+```{r, results = "hide", warning=FALSE, message=FALSE}
+# P-values Contour Plot
+pcb <- risk(cases,control,tolerate = T,adapt=T)
+```
+
+```{r}
+plot(pcb)
+plot(pcb$P)
+pcb_p<-cut(pcb$P,breaks=c(0,0.05,0.1,0.9,0.95,1))
+V <- tess(image = pcb_p)
+plot(V,valuesAreColours=FALSE)
+```
+
+
+One the permutation test is done we can see the mapping of the different p-values of the test done. To know if the model is significant or not. Here we see that the central part (the one with more point intensity) has considerably more cases since its p-value is so low. On the other hand he can not guarantee that the density is specially different in the rest of the map (or at least with the usual confidence level of 95%).
+
+Now, in order to go on with our analysis, we should asses the general spatial clustering. In this case we are going to use a Poisson (random) process to compare if we have clustering or not. For this we are going to compare the expected number of points of the process within a certain distance using Ripley's K function. Besides we are going to use simulation in order to give an envelope. 
+
+```{r}
+
+s=seq(0,1000,by=200)
+khcases<-Kest(cases, r=s, correction="iso")
+khcontrols<-Kest(control, r=s, correction="iso")
+
+plot(khcases, legend=F)
+lines(khcontrols$r,khcontrols$iso,lty=2)
+
+# Difference of k functions with envelope
+xppp=pbcdata_poly
+Kdif <- function(xppp, r, cr="iso")
+{
+  k1 <- Kest(xppp[marks(xppp)=="case"], r=r, correction= cr)
+  k2 <- Kest(xppp[marks(xppp)=="control"], r=r, correction= cr)
+  D=k1[[cr]]-k2[[cr]]
+  res <-data.frame(r=r, D=D)
+  return(fv(res, valu="D", fname="D"))
+}
+
+nsim <- 39
+envKdif <- envelope(pbcdata_poly, Kdif, r=s, nsim=nsim, nrank=1, savefuns=T, simulate=expression(rlabel(pbcdata_poly)))
+
+plot(envKdif, legend=F)
+```
+
+When the plot is obtained we can compare if our K is greater or not of the one computed using the Poisson process (random distributed data) as a reference. In this case we see that the continuous line (ours) is greater than the red one, therefore it signals that the is a clustering pattern (hence there is interaction). 
+Now we can define a clear border to the envelope so we can look at the interval to make sure our hypothesis of clustering is enough evident. Finally in order to end the analysis we can have a look at the parameters of the simulations done at a certain bandwidth (very important) and again show the limits of the envelope of the K function done from the Poisson data. Finally we are going to test if the cases and controls have the same intensities hence having the same K functions. This is done by permutations.
+
+```{r}
+#Test
+
+# Extract the simulated functions
+simfuns<-as.data.frame(attr(envKdif, "simfuns"))[,-1]
+#Compute diagonal of var-cov matrix of dif. K-functions
+khcovdiag<-apply(simfuns, 1, var)
+
+#Test
+T0<-sum( ((khcases$iso-khcontrols$iso)/sqrt(khcovdiag))[-1])
+T_pm<-apply(simfuns, 2, function(X){
+  sum((X/sqrt(khcovdiag))[-1])
+})
+
+plot(density(T_pm))
+abline(v=T0)
+
+pvalue<-2*(sum(abs(T_pm)>abs(T0))+1)/(nsim+1)
+pvalue
+
+# Alternative option for limits
+plot(envKdif, legend=F)
+lines(s, -1.96*sqrt(khcovdiag), lty=2)
+lines(s, +1.96*sqrt(khcovdiag), lty=2)
+
+```
+As seen with the p-value thecases and control have different K functions and therefore different intesisites therefore reafirming the results obtained above (clustering, risk variation). 
+
+So all in all, we have look at the data from primary biliary cirrhosis cases and compared that to a data of control to see if there were areas with higher risk of disease using spatial point patterns analysis. Throughout the analysis we have find clustering and difference in risks concluding that there is a certain area with significantly more incidence (and hence risk) of suffering from primary biliary cirrhosis. 

@@ -262,7 +262,7 @@ KS
 plot(KS)
 
 
-### NZ trees
+  ### NZ trees
 
 KS=cdf.test(nztrees,covariate="x")
 KS
